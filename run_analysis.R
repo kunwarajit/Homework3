@@ -1,42 +1,56 @@
-## set the directory where the files are
-setwd("D:/ajit1/coursea/Getting and Cleaning Data/Week 3/Assignment")
-## set factor variable for activity
-activity_v <- read.delim("./UCI HAR Dataset/activity_labels.txt",sep=" ",header=FALSE,col.names=c("value","label"))
-#activity_f = factor(activity_v$value, labels=activity_v$label)
-## Read features header (features)
-features_v <- read.delim("./UCI HAR Dataset/features.txt",sep=" ",header=FALSE,col.names=c("value","features"))
+# Read features header (features)
+featuresDS <- read.delim("./data/raw/UCI HAR Dataset/features.txt",sep=" ",header=FALSE,col.names=c("value","features"))
+# format the features text
+featuresDS$features <- gsub("[^[:alpha:]]","",featuresDS$features)
 #
-## Read train activity test data (y_test)
-train_activity_data <- read.delim("./UCI HAR Dataset/train/y_train.txt",sep="",header=FALSE,col.names=c("activity"))
-train_activity_data_f <- factor(train_activity_data$activity, labels=activity_v$label,)
-names(train_activity_data_f) <- "activity"
-## Read subjects test data (subject_train)
-train_subject_data <- read.delim("./UCI HAR Dataset/train/subject_train.txt",header=FALSE,sep=" ",col.names=c("subject"))
-## Read train x_test data (x_test)
-train_x_data <- read.table("./UCI HAR Dataset/train/x_train.txt",header=FALSE,col.names=features_v$features)
-train_complete <- cbind(train_activity_data_f,train_subject_data,train_x_data)
-names(train_complete)[[1]] <- "activity" 
+# Read activity header
+activityDS <- read.delim("./data/raw//UCI HAR Dataset/activity_labels.txt",sep=" ",header=FALSE,col.names=c("value","label"))
 #
-## Read test activity test data (y_test)
-test_activity_data <- read.delim("./UCI HAR Dataset/test/y_test.txt",sep="",header=FALSE,col.names=c("activity"))
-test_activity_data_f <- factor(test_activity_data$activity, labels=activity_v$label)
-#names(test_activity_data_f) <- "activity"
-## Read subjects test data (subject_test)
-test_subject_data <- read.delim("./UCI HAR Dataset/test/subject_test.txt",header=FALSE,sep=" ",col.names=c("subject"))
-## Read test x_test data (x_test)
-test_x_data <- read.table("./UCI HAR Dataset/test/x_test.txt",header=FALSE,col.names=features_v$features)
-test_complete <- cbind(test_activity_data_f,test_subject_data,test_x_data)
-names(test_complete)[[1]] <- "activity" 
-#############################
-## merge test and train
-#############################
-all_data_x <- rbind(test_complete,train_complete)
-if (!file.exists("./UCI HAR Dataset/Results")){
-        dir.create("./UCI HAR Dataset/Results")
-}
-write.csv(all_data_x,"./UCI HAR Dataset/Results/all_data_x.csv")
-write.table(summary(all_data_x), "./UCI HAR Dataset/Results/Summary_all_data_x.csv")
+#Read Train Subject dataset
+trainSubjectDS <- read.delim("./data/raw/UCI HAR Dataset/train/subject_train.txt",header=FALSE,sep=" ",col.names=c("subject"))
 #
+# Read train activity test data (y_test)
+trainActivityDataRaw <- read.delim("./data/raw/UCI HAR Dataset/train/y_train.txt",sep="",header=FALSE,col.names=c("activity"))
+trainActivityDS <- data.frame(activity= factor(trainActivityDataRaw$activity, labels=activityDS$label,))
 #
+#read train dataset
+trainingDS <- read.table("./data/raw/UCI HAR Dataset/train/x_train.txt",header=FALSE,col.names=featuresDS$features)
+# Give an identifier for a training row
+rowID <- data.frame(rowid = rep(c("Training"),nrow(trainingDS)))
 #
+#columns to select
+colsToSelect <- names(trainingDS) [grep('([Mm][Ee][Aa[Nn]|[Ss][Tt][Dd])',names(trainingDS))]
 #
+# Merge all
+finalDS <- cbind(rowID, trainSubjectDS,trainActivityDS, trainingDS[,names(trainingDS) %in% colsToSelect ])
+#
+# Setup test dataset
+#Read test Subject dataset
+testSubjectDS <- read.delim("./data/raw/UCI HAR Dataset/test/subject_test.txt",header=FALSE,sep=" ",col.names=c("subject"))
+#
+# Read test activity test data (y_test)
+testActivityDataRaw <- read.delim("./data/raw/UCI HAR Dataset/test/y_test.txt",sep="",header=FALSE,col.names=c("activity"))
+testActivityDS <- data.frame(activity= factor(testActivityDataRaw$activity, labels=activityDS$label,))
+#
+#read test dataset
+testingDS <- read.table("./data/raw/UCI HAR Dataset/test/x_test.txt",header=FALSE,col.names=featuresDS$features)
+# Give an identifier for a testing row
+rowID <- data.frame(rowid = rep(c("Testing"),nrow(testingDS)))
+# Merge Test all
+finalTestDS <- cbind(rowID, testSubjectDS,testActivityDS, testingDS[,names(testingDS) %in% colsToSelect ])
+#
+# Merge Test and Train Data
+finalDS <- rbind(finalDS,finalTestDS)
+write.csv(finalDS, "./data/tidy/Means_standard_deviations.txt", row.names=FALSE)
+#
+#columns to select for second tidy dataset
+secondTidyDScolsToSelect <- names(finalDS) [grep('(subject|activity|[Mm][Ee][Aa[Nn])',names(finalDS))]
+# 
+#create second tidy dataset
+secondTidyDS <- finalDS[,names(finalDS) %in% secondTidyDScolsToSelect]
+# Summarize data
+library(plyr)
+secondTidyDS <- ddply(secondTidyDS, c("subject","activity"), colwise(mean))
+#
+# write 2nd tidy dataset to file
+write.csv(secondTidyDS, "./data/tidy/secondTidyDS.txt", row.names=FALSE)
